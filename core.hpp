@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
+#include <memory>
 
 class Money {
 private:
@@ -25,17 +26,43 @@ public:
     bool operator==(const Money& other) const;
 };
 
-enum class BetType { COLOR, NUMBER };
 enum class Color { RED, BLACK, GREEN };
 
-struct Bet {
-    BetType type;
-    int number;
-    Color color;
-    Money amount;
-    Bet();
-    Bet(BetType t, int n, Color c, Money a);
+
+class IBet {
+public:
+    virtual ~IBet() = default;
+    virtual Money getAmount() const = 0;
+    virtual Money getMaxPotentialWin() const = 0;
+    virtual bool isWin(int result, Color resultColor) const = 0;
+    virtual std::string getBetDescription() const = 0;
 };
+
+class ColorBet : public IBet {
+private:
+    Money amount;
+    Color color;
+public:
+    ColorBet(Color c, Money a);
+    Money getAmount() const override;
+    Money getMaxPotentialWin() const override;
+    bool isWin(int result, Color resultColor) const override;
+    std::string getBetDescription() const override;
+};
+
+class NumberBet : public IBet {
+private:
+    Money amount;
+    int number;
+public:
+    NumberBet(int n, Money a);
+    Money getAmount() const override;
+    Money getMaxPotentialWin() const override;
+    bool isWin(int result, Color resultColor) const override;
+    std::string getBetDescription() const override;
+};
+
+
 
 class Player {
 private:
@@ -77,7 +104,7 @@ public:
 class IJournalRepository {
 public:
     virtual ~IJournalRepository() = default;
-    virtual void log(int round, const Bet& bet, int result, Money win, Money playerBal, Money casinoBal) = 0;
+    virtual void log(int round, const IBet& bet, int result, Money win, Money playerBal, Money casinoBal) = 0;
 };
 
 class CSVJournalRepository : public IJournalRepository {
@@ -86,7 +113,7 @@ private:
 public:
     CSVJournalRepository(const std::string& filename);
     ~CSVJournalRepository() override;
-    void log(int round, const Bet& bet, int result, Money win, Money playerBal, Money casinoBal) override;
+    void log(int round, const IBet& bet, int result, Money win, Money playerBal, Money casinoBal) override;
 };
 
 class GameSession {
@@ -101,5 +128,5 @@ public:
     Player& getPlayer();
     Casino& getCasino();
     static Color getColorForNumber(int num);
-    void playRound(const Bet& bet, IRouletteGenerator& generator, IJournalRepository& journal);
+    void playRound(std::shared_ptr<IBet> bet, IRouletteGenerator& generator, IJournalRepository& journal);
 };

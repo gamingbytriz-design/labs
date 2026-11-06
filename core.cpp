@@ -18,8 +18,23 @@ bool Money::operator>(const Money& other) const { return cents > other.cents; }
 bool Money::operator<(const Money& other) const { return cents < other.cents; }
 bool Money::operator==(const Money& other) const { return cents == other.cents; }
 
-Bet::Bet() : type(BetType::COLOR), number(0), color(Color::RED), amount(0) {}
-Bet::Bet(BetType t, int n, Color c, Money a) : type(t), number(n), color(c), amount(a) {}
+
+ColorBet::ColorBet(Color c, Money a) : color(c), amount(a) {}
+Money ColorBet::getAmount() const { return amount; }
+Money ColorBet::getMaxPotentialWin() const { return amount * 2; }
+bool ColorBet::isWin(int result, Color resultColor) const { return resultColor == color; }
+std::string ColorBet::getBetDescription() const {
+    return (color == Color::RED) ? "Color RED" : (color == Color::BLACK) ? "Color BLACK" : "Color GREEN";
+}
+
+
+NumberBet::NumberBet(int n, Money a) : number(n), amount(a) {}
+Money NumberBet::getAmount() const { return amount; }
+Money NumberBet::getMaxPotentialWin() const { return amount * 36; }
+bool NumberBet::isWin(int result, Color resultColor) const { return result == number; }
+std::string NumberBet::getBetDescription() const {
+    return "Number " + std::to_string(number);
+}
 
 Player::Player(std::string n, Money startBalance) : name(n), balance(startBalance) {}
 std::string Player::getName() const { return name; }
@@ -55,11 +70,10 @@ CSVJournalRepository::~CSVJournalRepository() {
     }
 }
 
-void CSVJournalRepository::log(int round, const Bet& bet, int result, Money win, Money playerBal, Money casinoBal) {
-    std::string typeStr = (bet.type == BetType::COLOR) ? "Color" : "Number";
-    file << round << "," << typeStr << "," << bet.amount.getRubles() << ","
-         << result << "," << win.getRubles() << ","
-         << playerBal.getRubles() << "," << casinoBal.getRubles() << "\n";
+void CSVJournalRepository::log(int round, const IBet& bet, int result, Money win, Money playerBal, Money casinoBal) {
+    file << round << "," << bet.getBetDescription() << "," << bet.getAmount().getRubles() << ","
+        << result << "," << win.getRubles() << ","
+        << playerBal.getRubles() << "," << casinoBal.getRubles() << "\n";
 }
 
 GameSession::GameSession(Player p, Casino c, Money minB, Money maxB)
@@ -76,40 +90,32 @@ Color GameSession::getColorForNumber(int num) {
     return (num % 2 == 0) ? Color::RED : Color::BLACK;
 }
 
-void GameSession::playRound(const Bet& bet, IRouletteGenerator& generator, IJournalRepository& journal) {
-    if (bet.amount < minBet || bet.amount > maxBet) {
+void GameSession::playRound(std::shared_ptr<IBet> bet, IRouletteGenerator& generator, IJournalRepository& journal) {
+    if (bet->getAmount() < minBet || bet->getAmount() > maxBet) {
         throw std::invalid_argument("Bet exceeds table limits");
     }
-    if (player.getBalance() < bet.amount) {
+    if (player.getBalance() < bet->getAmount()) {
         throw std::invalid_argument("Insufficient funds");
     }
-
-    Money maxPotentialWin = (bet.type == BetType::NUMBER) ? bet.amount * 36 : bet.amount * 2;
-    if (casino.getBalance() < maxPotentialWin) {
+    if (casino.getBalance() < bet->getMaxPotentialWin()) {
         throw std::invalid_argument("Casino cannot cover this bet");
     }
 
-    player.withdraw(bet.amount);
+    player.withdraw(bet->getAmount());
     int result = generator.spin();
+    Color resultColor = getColorForNumber(result);
 
     Money win(0);
-    bool isWin = false;
 
-    if (bet.type == BetType::COLOR && bet.color == getColorForNumber(result)) {
-        win = bet.amount * 2;
-        isWin = true;
-    } else if (bet.type == BetType::NUMBER && bet.number == result) {
-        win = bet.amount * 36;
-        isWin = true;
-    }
-
-    if (isWin) {
+    if (bet->isWin(result, resultColor)) {
+        win = bet->getMaxPotentialWin();
         casino.withdraw(win);
         player.deposit(win);
-    } else {
-        casino.deposit(bet.amount);
+    }
+    else {
+        casino.deposit(bet->getAmount());
     }
 
-    journal.log(currentRound, bet, result, win, player.getBalance(), casino.getBalance());
+    journal.log(currentRound, *bet, result, win, player.getBalance(), casino.getBalance());
     currentRound++;
 }

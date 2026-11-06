@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <memory>
 #include "core.hpp"
 
 TEST(MoneyTest, BasicMath) {
@@ -60,7 +61,7 @@ public:
 
 class FakeJournal : public IJournalRepository {
 public:
-    void log(int round, const Bet& bet, int result, Money win, Money playerBal, Money casinoBal) override {}
+    void log(int round, const IBet& bet, int result, Money win, Money playerBal, Money casinoBal) override {}
 };
 
 TEST(GameSessionTest, WinAndLoss) {
@@ -71,17 +72,17 @@ TEST(GameSessionTest, WinAndLoss) {
     FakeJournal journal;
 
     FakeGenerator winGen(1);
-    Bet bet(BetType::COLOR, 0, Color::RED, Money(1000));
+    auto bet = std::make_shared<ColorBet>(Color::RED, Money(1000));
     session.playRound(bet, winGen, journal);
     EXPECT_EQ(session.getPlayer().getBalance().getCents(), 11000);
 
     FakeGenerator loseGen(1);
-    Bet loseBet(BetType::COLOR, 0, Color::BLACK, Money(1000));
+    auto loseBet = std::make_shared<ColorBet>(Color::BLACK, Money(1000));
     session.playRound(loseBet, loseGen, journal);
     EXPECT_EQ(session.getPlayer().getBalance().getCents(), 10000);
 
     FakeGenerator numGen(36);
-    Bet numBet(BetType::NUMBER, 36, Color::GREEN, Money(100));
+    auto numBet = std::make_shared<NumberBet>(36, Money(100));
     session.playRound(numBet, numGen, journal);
     EXPECT_EQ(session.getPlayer().getBalance().getCents(), 13500);
 }
@@ -94,10 +95,10 @@ TEST(GameSessionTest, ThrowsOnInvalidBet) {
     FakeJournal journal;
     FakeGenerator gen(1);
 
-    Bet smallBet(BetType::COLOR, 0, Color::RED, Money(100));
+    auto smallBet = std::make_shared<ColorBet>(Color::RED, Money(100));
     EXPECT_THROW(session.playRound(smallBet, gen, journal), std::invalid_argument);
 
-    Bet highBet(BetType::COLOR, 0, Color::RED, Money(300));
+    auto highBet = std::make_shared<ColorBet>(Color::RED, Money(300));
     EXPECT_THROW(session.playRound(highBet, gen, journal), std::invalid_argument);
 }
 

@@ -43,13 +43,13 @@ void playManual(GameSession& session, IRouletteGenerator& generator, IJournalRep
         }
 
         Money betAmount(amountRub * 100);
-        Bet bet(BetType::COLOR, 0, Color::RED, betAmount);
+        std::shared_ptr<IBet> bet = nullptr;
 
         if (choice == 1) {
-            bet = Bet(BetType::COLOR, 0, Color::RED, betAmount);
+            bet = std::make_shared<ColorBet>(Color::RED, betAmount);
         }
         else if (choice == 2) {
-            bet = Bet(BetType::COLOR, 0, Color::BLACK, betAmount);
+            bet = std::make_shared<ColorBet>(Color::BLACK, betAmount);
         }
         else if (choice == 3) {
             int num;
@@ -59,7 +59,7 @@ void playManual(GameSession& session, IRouletteGenerator& generator, IJournalRep
                 std::cout << "Invalid number.\n";
                 continue;
             }
-            bet = Bet(BetType::NUMBER, num, Color::GREEN, betAmount);
+            bet = std::make_shared<NumberBet>(num, betAmount);
         }
         else {
             std::cout << "Invalid option.\n";
@@ -98,7 +98,7 @@ void playAuto(GameSession& session, IRouletteGenerator& generator, IJournalRepos
             betAmount = balance;
         }
 
-        Bet bet(BetType::COLOR, 0, Color::RED, betAmount);
+        auto bet = std::make_shared<ColorBet>(Color::RED, betAmount);
 
         try {
             session.playRound(bet, generator, journal);
@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
                 Money betAmount(10000);
                 if (balance < betAmount) betAmount = balance;
 
-                Bet bet(BetType::COLOR, 0, Color::RED, betAmount);
+                auto bet = std::make_shared<ColorBet>(Color::RED, betAmount);
 
                 try {
                     session.playRound(bet, generator, journal);
